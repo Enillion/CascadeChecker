@@ -1,0 +1,354 @@
+﻿<Window x:Class="WPFCascadeCheckerUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WPFCascadeCheckerUI"
+        mc:Ignorable="d"
+        Icon="cascadechecker.ico"
+        Title="Cisco Omnitool" Height="320" Width="600" ResizeMode="CanResizeWithGrip">
+    <Grid>
+        <TabControl>
+            <TabItem Header="XML Checker">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20*"/>
+                        <ColumnDefinition Width="120*"/>
+                        <ColumnDefinition Width="auto"/>
+                        <ColumnDefinition Width="300*"/>
+                        <ColumnDefinition Width="120*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="20*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="20*"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="100*"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="20*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Column="1" Grid.Row="1"
+                        Text="Location of the folder containing XML / ditamap files:" 
+                        Grid.ColumnSpan ="3"/>
+
+                    <Button x:Name="BrowseFolder"
+                        Grid.Column="1" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Content="Browse Folders"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Manually choose folder/catalogue with xml/ditamap files."
+                        Click="BrowseFolder_Click"/>
+
+                    <TextBox x:Name="PathDisplay"
+                        Grid.Column="2" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Background="LightGoldenrodYellow"
+                        Text=""
+                        Grid.ColumnSpan="2"/>
+
+                    <Button x:Name="AddXmlLang"
+                        Grid.Column="4" Grid.Row="1"
+                        Margin="5,0,5,0"
+                        Content="Add xml:lang"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Adds xml:lang attribute to all files. At least one xml:lang per language folder must be present. FOLDER CONTAINING LANGUAGE SUB-FOLDERS MUST BE SELECTED!"
+                        Click="AddXmlLang_Click"/>
+
+                    <Button x:Name="CheckXmlLang"
+                        Grid.Column="4" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Content="Check xml:lang"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Check if all xml/ditamap type files have xml:lang attribute."
+                        Click="CheckXmlLang_Click"/>
+
+                    <StackPanel x:Name="StackDropFolder"
+                        AllowDrop="True"
+                        Grid.Column="1" Grid.Row="3"
+                        Background="LightGray"
+                        Grid.ColumnSpan="4"
+                        Margin="5,5,5,5"
+                        Drop="StackDropFolder_Drop"
+                    >
+                        <Label Content="Drop Folder Here" HorizontalAlignment="Center" Foreground="DarkGray"/>
+                    </StackPanel>
+
+                    <Button x:Name="RunButton"
+                        Grid.Column="1" Grid.Row="4"
+                        Margin="5,5,5,5"
+                        Content="Run Check"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Do it! I know you want to."
+                        Click="RunButton_Click"/>
+
+                    <CheckBox x:Name="UICOverride"
+                        Grid.Column="2" Grid.Row="4"
+                        Margin="5,5,5,5"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="When checked, ignores uicontrol contents except for another uicontrols and menucascades."/>
+
+                    <Button x:Name="LogButton"
+                        Grid.Column="4" Grid.Row="4"
+                        Margin="5,5,5,5"
+                        Content="Open Log"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Open the latest generated log file."
+                        Click="LogButton_Click"/>
+
+                    <TextBox x:Name="LogLocation" Text=""
+                        Grid.Column="3" Grid.Row="4"
+                        Background="LightGoldenrodYellow"
+                        Margin="5,5,5,5"/>
+
+                    <ProgressBar Grid.Column="1" Grid.Row="5" Grid.ColumnSpan="4"
+                                 Minimum="0" Name="progressBar1" Margin="20,5,20,0"/>
+                </Grid>                
+            </TabItem>
+            <TabItem Header="SDLxliff Batcher">
+                <StackPanel x:Name="BatcherStack">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20*"/>
+                        <ColumnDefinition Width="120*"/>
+                        <ColumnDefinition Width="300*"/>
+                        <ColumnDefinition Width="120*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="20*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="20"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="115"/>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="20"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Column="1" Grid.Row="1"
+                        Text="Location of the folder containing sdlxliff files for processing:" 
+                        Grid.ColumnSpan ="2"/>
+
+                    <Button x:Name="BrowseFolder2"
+                        Grid.Column="1" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Content="Browse Folders"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Manually choose folder with sdlxliff files for processing."
+                        Click="BrowseFolder2_Click"/>
+
+                    <TextBox x:Name="PathDisplay2"
+                        Grid.Column="2" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Background="LightGoldenrodYellow"
+                        Text=""
+                        Grid.ColumnSpan="2"/>
+
+                    <StackPanel x:Name="StackDropFolder2"
+                        AllowDrop="True"
+                        Grid.Column="1" Grid.Row="3"
+                        Background="LightGray"
+                        Grid.ColumnSpan="3"
+                        Margin="5,5,5,5"
+                        Drop="StackDropFolder2_Drop"
+                    >
+                        <Label Content="Drop Folder Here" HorizontalAlignment="Center" Foreground="DarkGray"/>
+                    </StackPanel>
+
+                        <ProgressBar Grid.Column="1" Grid.Row="4" Grid.ColumnSpan="4"
+                                 Minimum="0" Name="BatchProgress" Margin="20,5,20,5"/>
+
+                        <Button x:Name="CreateFoldersButton"
+                        Grid.Column="2" Grid.Row="5"
+                        Margin="5,5,5,5"
+                        Content="Generate TMS Batch"
+                        ToolTipService.ShowDuration="6000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Generate TMS batch using folder with sdlxliff files from Passolo. Works like charm for files with language code at the end of their names."
+                        Click="CreateFoldersButton_Click"/>
+
+                </Grid>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Encoding Tools">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20*"/>
+                        <ColumnDefinition Width="120*"/>
+                        <ColumnDefinition Width="30"/>
+                        <ColumnDefinition Width="250*"/>
+                        <ColumnDefinition Width="120*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="20*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="20*"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="100*"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="20*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Column="1" Grid.Row="1"
+                        Text="Location of the folder containing files for processing:" 
+                        Grid.ColumnSpan ="2"/>
+
+                    <Button x:Name="BrowseFolder3"
+                        Grid.Column="1" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Content="Browse Folders"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Manually choose folder with files for processing."
+                        Click="BrowseFolder3_Click"/>
+
+                    <TextBox x:Name="PathDisplay3"
+                        Grid.Column="2" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Background="LightGoldenrodYellow"
+                        Text=""
+                        Grid.ColumnSpan="3"/>
+
+                    <StackPanel x:Name="StackDropFolder3"
+                        AllowDrop="True"
+                        Grid.Column="1" Grid.Row="3"
+                        Background="LightGray"
+                        Grid.ColumnSpan="4"
+                        Margin="5,5,5,5"
+                        Drop="StackDropFolder3_Drop"
+                    >
+                        <Label Content="Drop Folder Here" HorizontalAlignment="Center" Foreground="DarkGray"/>
+                    </StackPanel>
+
+                    <Button x:Name="Convert"
+                        Grid.Column="1" Grid.Row="4"
+                        Margin="5,5,5,5"
+                        Content="Native 2 ASCII"
+                        ToolTipService.ShowDuration="6000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Convert file content from native codepage to ASCII with escaped unicode for characters outside ASCII codepage."
+                        Click="Convert_Click"/>
+
+                    <CheckBox x:Name="ApoCheck"
+                        Grid.Column="2" Grid.Row="4"
+                        Margin="5,5,5,5"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="When checked, converts apostrophes into its unicode counterpart: \u0027."/>
+
+                    <ComboBox x:Name="EncodingSelection"
+                        Grid.Column="3" Grid.Row="4"
+                        Margin="150,5,20,5"
+                        ToolTip="Select target encoding and press 'Change Encoding' button to start conversion of selected files.">
+
+                        <ComboBoxItem IsSelected="true">UTF-8</ComboBoxItem>
+                        <ComboBoxItem>UTF-8-BOM</ComboBoxItem>
+                        
+                    </ComboBox>
+
+                    <Button x:Name="ChangeEncoding"
+                        Grid.Column="4" Grid.Row="4"
+                        Margin="5,5,5,5"
+                        Content="Change Encoding"
+                        ToolTipService.ShowDuration="6000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Convert file content from its native encoding to the selected UTF-8 or UTF-8-BOM."
+                        Click="ChangeEncoding_Click"/>
+
+                    <ProgressBar Grid.Column="1" Grid.Row="5" Grid.ColumnSpan="4"
+                                 Minimum="0" Name="progressBar2" Margin="20,5,20,0"/>
+
+                </Grid>
+            </TabItem>
+            <TabItem Header="Other Tools">
+                <StackPanel x:Name="ToolStack">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20*"/>
+                            <ColumnDefinition Width="120*"/>
+                            <ColumnDefinition Width="300*"/>
+                            <ColumnDefinition Width="120*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="20*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="auto"/>
+                            <RowDefinition Height="auto"/>
+                            <RowDefinition Height="100"/>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="20"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Column="1" Grid.Row="1"
+                        Text="Location of the folder containing files for processing:" 
+                        Grid.ColumnSpan ="2"/>
+
+                        <Button x:Name="BrowseFolder4"
+                        Grid.Column="1" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Content="Browse Folders"
+                        ToolTipService.ShowDuration="5000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Manually choose folder with files for processing."
+                        Click="BrowseFolder4_Click"/>
+
+                        <TextBox x:Name="PathDisplay4"
+                        Grid.Column="2" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Background="LightGoldenrodYellow"
+                        Text=""
+                        Grid.ColumnSpan="2"/>
+
+                        <StackPanel x:Name="StackDropFolder4"
+                            AllowDrop="True"
+                            Grid.Column="1" Grid.Row="3"
+                            Background="LightGray"
+                            Grid.ColumnSpan="3"
+                            Margin="5,5,5,5"
+                            Drop="StackDropFolder4_Drop"
+                        >
+                            <Label Content="Drop Folder Here" HorizontalAlignment="Center" Foreground="DarkGray"/>
+                        </StackPanel>
+
+                        <ProgressBar Grid.Column="1" Grid.Row="4" Grid.ColumnSpan="4"
+                                 Minimum="0" Name="progressBar4" Margin="20,5,20,0"/>
+
+                        <Button x:Name="ZipContents"
+                        Grid.Column="1" Grid.Row="5"
+                        Margin="5,5,5,5"
+                        Content="Zip Contents"
+                        ToolTipService.ShowDuration="6000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="For each subfolder of selected folder, zip its contents and name it with subfolder name."
+                        Click="ZipContents_Click"/>
+
+                        <Button x:Name="ChpFix"
+                        Grid.Column="2" Grid.Row="5"
+                        Margin="5,5,5,5"
+                        Content="Fix CHP *.txt files and folders"
+                        ToolTipService.ShowDuration="6000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Process all subfolders of selected directory and fix date format and spacing in *.txt files, as well as language code uppercase in foldernames."
+                        Click="ChpFix_Click"/>
+
+                    </Grid>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+        
+    </Grid>
+</Window>
