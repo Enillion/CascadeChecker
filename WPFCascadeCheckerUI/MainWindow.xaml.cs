@@ -2,12 +2,14 @@
 using System.Windows;
 using Microsoft.WindowsAPICodePack.Dialogs; //Uber solution for browsing folders
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using Excel = Microsoft.Office.Interop.Excel;
 
 namespace WPFCascadeCheckerUI
 {
@@ -253,7 +255,15 @@ namespace WPFCascadeCheckerUI
                                     if (xmlLang.Value == "nb_NO")
                                     {
                                         xmlLang.Value = "no_NO";
-                                    }                                    
+                                    }
+                                    else if (xmlLang.Value == "es-CO")
+                                    {
+                                        xmlLang.Value = "es_CO";
+                                    }
+                                    else if (xmlLang.Value == "sr_RS_Latn")
+                                    {
+                                        xmlLang.Value = "sr_RS";
+                                    }
                                     continue;
                                 }
                             }
@@ -279,7 +289,7 @@ namespace WPFCascadeCheckerUI
                                         xml.Load(xr);
                                     }
 
-                                    if (xml.DocumentElement.HasAttribute("xml:lang") == false || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "nb_NO")
+                                    if (xml.DocumentElement.HasAttribute("xml:lang") == false || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "nb_NO" || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "es-CO" || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "sr_RS_Latn")
                                     {
                                         if (xml.DocumentElement.HasAttribute("xml:lang") == true)
                                         {
@@ -303,7 +313,8 @@ namespace WPFCascadeCheckerUI
                                         {
                                             sb.Append(character);
                                         }
-                                        sb.Replace(@"\r\n", @"\n");//-----------convert Windows newline with Unix newline
+                                        //sb.Replace(@"\r\n", @"\n");//-----------convert Windows newline with Unix newline
+                                        sb.Replace(Environment.NewLine, ('\u000A').ToString());//-----------convert Windows newline with Unix newline
                                         File.WriteAllText(file, sb.ToString());                                        
                                     }                                                
                                 }
@@ -1022,8 +1033,9 @@ namespace WPFCascadeCheckerUI
                     foreach (string file in files)
                     {
                         if (Path.GetExtension(file) == ".txt")
-                        {                            
-                            string fileContent = File.ReadAllText(file);
+                        {
+                            string fileContentWithQuotes = File.ReadAllText(file);
+                            string fileContent = DeleteQuotes(fileContentWithQuotes);
                             StringBuilder sb = new StringBuilder(Regex.Replace(fileContent, @"(\d{1,2})-(\d{1,2})-(\d{4})", @"$3-$2-$1"));
                                                         
                             while (sb.ToString().Contains(" \","))
@@ -1031,16 +1043,833 @@ namespace WPFCascadeCheckerUI
                                 sb.Replace(" \",", "\",");                                
                             }
 
-                            sb.Replace(@"\r\n", @"\n");//-----------convert Windows newline with Unix newline
+                            sb.Replace(Environment.NewLine, ('\u000A').ToString());//-----------convert Windows newline with Unix newline
+                            string test = sb.ToString();
                             File.WriteAllText(file, sb.ToString());
-                        }
+                        }                        
                     }
-                    string tempFolderName = folder.ToLowerInvariant() + "_Temp";
+
+                    string oldFolder = ReplaceLanguageCode(folder, "nb_NO", "no_no");
+                    
+                    string tempFolderName = oldFolder.ToLowerInvariant() + "_Temp";
                     Directory.Move(folder, tempFolderName);
-                    Directory.Move(tempFolderName, folder.ToLowerInvariant());
+                    Directory.Move(tempFolderName, oldFolder.ToLowerInvariant());
                     (sender as BackgroundWorker).ReportProgress(progress++);
                 }
 
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            }
+        }
+
+        private string ReplaceLanguageCode(string folder, string sourceLanguageCodeToReplace, string targetLanguageCode)
+        {
+            string oldFolder;
+            int startIndex = folder.LastIndexOf('\\') + 1;
+            if (folder.Substring(startIndex, 5) == sourceLanguageCodeToReplace)
+            {
+                oldFolder = folder.Remove(startIndex, 5) + targetLanguageCode;
+            }
+            else
+            {
+                oldFolder = folder;
+            }
+
+            return oldFolder;
+        }
+
+        private void Rename_Click(object sender, RoutedEventArgs e)//-----Rename Files section start
+        {
+            if (PathDisplay4.Text == "")
+            {
+                MessageBox.Show("Target folder was not selected");
+            }
+            else
+            {
+                ToolStack.IsEnabled = false;
+
+                progressBar4.Value = 0;
+                progressBar4.Maximum = (Directory.GetDirectories(PathDisplay4.Text)).Length - 1;
+
+                BackgroundWorker bgw6 = new BackgroundWorker(); // initialization of backgroundworker to move app processing to the 2nd thread
+                bgw6.WorkerReportsProgress = true;
+                bgw6.DoWork += Bgw6_DoWork;
+                bgw6.ProgressChanged += Bgw6_ProgressChanged;
+                bgw6.RunWorkerCompleted += Bgw6_RunWorkerCompleted;
+                bgw6.RunWorkerAsync(PathDisplay4.Text);
+            }
+        }
+
+        private void Bgw6_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //-------------------------------> enable wpf controls
+            ToolStack.IsEnabled = true;
+            MessageBox.Show("Done");
+        }
+
+        private void Bgw6_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            progressBar4.Value = e.ProgressPercentage;
+        }
+
+        private void Bgw6_DoWork(object sender, DoWorkEventArgs e)
+        {
+            string pathDisplay = (string)e.Argument;
+            int progress = 0;
+
+            try
+            {
+                if (Directory.Exists(pathDisplay) == false)
+                {
+                    MessageBox.Show("The specified path does not lead to valid folder.");
+                    return;
+                }
+
+                string[] folders = Directory.GetDirectories(pathDisplay);
+                foreach (string folderPath in folders)
+                {
+                    string exportSummaryPath = folderPath + @"\translation_export_summary.xml";
+                    XmlDocument exportSummary = new XmlDocument();
+                    exportSummary.Load(exportSummaryPath);
+
+                    XmlNode parent = exportSummary.SelectSingleNode("translationObjectFile/translationObjectProperties");
+
+                    foreach (XmlNode child in parent)
+                    {
+                        var uniqueID = child.Attributes["fileUniqueID"];
+                        var nodePath = child.Attributes["nodePath"];
+                        if (uniqueID != null && nodePath != null)
+                        {
+                            string fileUniqueID = uniqueID.Value;
+                            string fileOriginalName = (string)nodePath.Value.Substring(nodePath.Value.LastIndexOf(@"/") + 1);
+
+                            Console.WriteLine("{0}    Original file name:   {1}", fileUniqueID, fileOriginalName);
+
+                            RenameFile(fileUniqueID, fileOriginalName, folderPath);                            
+                        }
+                    }
+                    (sender as BackgroundWorker).ReportProgress(progress++);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            }
+        }
+
+        private void RenameFile(string fileUniqueID, string fileOriginalName, string folderPath)
+        {            
+            if (fileOriginalName != "")
+            {
+                if (File.Exists(folderPath + @"/" + fileUniqueID + @".xml"))
+                {
+                    File.Move(folderPath + @"/" + fileUniqueID + @".xml", folderPath + @"/" + fileOriginalName);
+                }
+                else if (File.Exists(folderPath + @"/" + fileUniqueID + @".ditamap"))
+                {
+                    File.Move(folderPath + @"/" + fileUniqueID + @".ditamap", folderPath + @"/" + fileOriginalName);
+                }
+                else if (File.Exists(folderPath + @"/" + fileUniqueID + @".dita"))
+                {
+                    File.Move(folderPath + @"/" + fileUniqueID + @".dita", folderPath + @"/" + fileOriginalName);
+                }
+            }
+        }
+
+        private void ChpPrep_Click(object sender, RoutedEventArgs e)//-----CHP Prep section Start
+        {
+            if (PathDisplay4.Text == "")
+            {
+                MessageBox.Show("Target folder was not selected");
+            }
+            else
+            {
+                ToolStack.IsEnabled = false;
+
+                progressBar4.Value = 0;
+                progressBar4.Maximum = 7;
+
+                BackgroundWorker bgw7 = new BackgroundWorker(); // initialization of backgroundworker to move app processing to the 2nd thread
+                bgw7.WorkerReportsProgress = true;
+                bgw7.DoWork += Bgw7_DoWork;
+                bgw7.ProgressChanged += Bgw7_ProgressChanged; ;
+                bgw7.RunWorkerCompleted += Bgw7_RunWorkerCompleted;
+                bgw7.RunWorkerAsync(PathDisplay4.Text);
+            }
+        }
+
+        private void Bgw7_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //-------------------------------> enable wpf controls
+            ToolStack.IsEnabled = true;
+            MessageBox.Show("Done");
+        }
+
+        private void Bgw7_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            progressBar4.Value = e.ProgressPercentage;
+        }
+
+        private void Bgw7_DoWork(object sender, DoWorkEventArgs e)
+        {
+            string pathDisplay = (string)e.Argument;
+            int progress = 0;
+            try
+            {
+                if (Directory.Exists(pathDisplay) == false)
+                {
+                    MessageBox.Show("The specified path does not lead to valid folder containing zipped source file.");
+                    return;
+                }
+
+                string[] files = Directory.GetFiles(pathDisplay);
+                foreach (string file in files)
+                {
+                    if (Path.GetExtension(file) == ".zip")
+                    {
+                        string foldername = pathDisplay + @"\" + "XTM_Source";
+                        if (Directory.Exists(foldername))
+                        {
+                            MessageBoxButton buttons = MessageBoxButton.YesNo;
+
+                            MessageBoxResult result = MessageBox.Show("Cannot create folder \"XTM_Source\" as it already exists\nDo you wish to overwrite it?", foldername, buttons);
+                            if (result == MessageBoxResult.No)
+                            {
+                                MessageBox.Show("Process Aborted.");
+                                return;
+                            }
+                            else
+                            {
+                                Directory.Delete(foldername, true);                                
+                            }
+                        }
+
+                        DirectoryInfo di = Directory.CreateDirectory(foldername);
+                        string htmlFolder = foldername + @"\" + "HTML";
+                        string htmlSourceFolder = htmlFolder + @"\" + file.Substring(file.LastIndexOf(@"\"), (file.Length - file.LastIndexOf(@"\") - 4));
+                        string txtFolder = foldername + @"\" + "TXT";
+                        string txtSourceFolder = txtFolder + @"\" + file.Substring(file.LastIndexOf(@"\"), (file.Length - file.LastIndexOf(@"\") - 4));
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+
+                        di = Directory.CreateDirectory(txtFolder);
+                        di = Directory.CreateDirectory(txtSourceFolder);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+
+                        di = Directory.CreateDirectory(htmlFolder);
+                        di = Directory.CreateDirectory(htmlSourceFolder);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+
+                        ZipFile.ExtractToDirectory(file, foldername);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+
+                        string[] items = Directory.GetFiles(foldername);
+                        foreach (var item in items)
+                        {
+                            if (Path.GetExtension(item) == ".txt")
+                            {
+                                File.Move(item, txtSourceFolder + @"\" + item.Substring(item.LastIndexOf(@"\"), (item.Length - item.LastIndexOf(@"\"))));
+                                File.Delete(item);
+                            }
+                            else if (Path.GetExtension(item) == ".html")
+                            {
+                                File.Move(item, htmlSourceFolder + @"\" + item.Substring(item.LastIndexOf(@"\"), (item.Length - item.LastIndexOf(@"\"))));
+                                File.Delete(item);
+                            }
+                        }
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+
+                        FixTXT(txtSourceFolder);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+                        ZipFolder(foldername, txtFolder);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+                        ZipFolder(foldername, htmlFolder);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+
+                    }
+                    else
+                    {
+                        MessageBox.Show("The specified folder does not contain valid zipped source file.");
+                        return;
+                    }
+                }                                
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            }
+        }
+
+        private void ZipFolder(string parentFolder, string zipFolder)
+        {
+            ZipFile.CreateFromDirectory(zipFolder, (parentFolder + @"\" + zipFolder.Substring(zipFolder.LastIndexOf(@"\"), (zipFolder.Length - zipFolder.LastIndexOf(@"\"))) + @".zip"));
+            Directory.Delete(zipFolder, true);
+        }
+
+        private void FixTXT(string txtSourceFolder)
+        {
+            string[] files = Directory.GetFiles(txtSourceFolder);
+            foreach (string file in files)
+            {
+                string fileContent = File.ReadAllText(file);
+                StringBuilder sb = new StringBuilder(fileContent);
+
+                while (sb.ToString().Contains(" \","))
+                {
+                    sb.Replace(" \",", "\",");
+                }
+
+                string[] spaces = {"            ", "           ", "          ", "         ", "        ", "       ", "      ", "     " };
+                foreach (string space in spaces)
+                {
+                    while (sb.ToString().Contains(space))
+                    {
+                        sb.Replace(space, " ");
+                    }
+                }
+
+                sb.Replace(@"\r\n", @"\n");//-----------convert Windows newline to Unix newline
+                File.WriteAllText(file, sb.ToString());
+            }
+        }
+
+        private void Mt_chp_prep_Click(object sender, RoutedEventArgs e)//-----MT CHP Prep section Start
+        {
+            if (PathDisplay4.Text == "")
+            {
+                MessageBox.Show("Target folder was not selected");
+            }
+            else
+            {
+                ToolStack.IsEnabled = false;
+
+                progressBar4.Value = 0;
+                progressBar4.Maximum = 4;
+
+                BackgroundWorker bgw8 = new BackgroundWorker(); // initialization of backgroundworker to move app processing to the 2nd thread
+                bgw8.WorkerReportsProgress = true;
+                bgw8.DoWork += Bgw8_DoWork;
+                bgw8.ProgressChanged += Bgw8_ProgressChanged;
+                bgw8.RunWorkerCompleted += Bgw8_RunWorkerCompleted;
+                bgw8.RunWorkerAsync(PathDisplay4.Text);
+                
+            }
+        }
+
+        private void Bgw8_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //-------------------------------> enable wpf controls
+            ToolStack.IsEnabled = true;
+            MessageBox.Show("Done");
+        }
+
+        private void Bgw8_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            progressBar4.Value = e.ProgressPercentage;
+        }
+
+        private void Bgw8_DoWork(object sender, DoWorkEventArgs e)
+        {
+            string pathDisplay = (string)e.Argument;
+            int progress = 0;
+            try
+            {
+                if (Directory.Exists(pathDisplay) == false)
+                {
+                    MessageBox.Show("The specified path does not lead to valid folder containing zipped source file.");
+                    return;
+                }
+
+                string foldername = pathDisplay + @"\" + "TMS_Source";
+                if (Directory.Exists(foldername))
+                {
+                    MessageBoxButton buttons = MessageBoxButton.YesNo;
+
+                    MessageBoxResult result = MessageBox.Show("Cannot create folder \"TMS_Source\" as it already exists\nDo you wish to overwrite it?", foldername, buttons);
+                    if (result == MessageBoxResult.No)
+                    {
+                        MessageBox.Show("Process Aborted.");
+                        return;
+                    }
+                    else
+                    {
+                        Directory.Delete(foldername, true);
+                    }
+                }
+
+                string[] files = Directory.GetFiles(pathDisplay);
+                foreach (string file in files)
+                {
+                    if (Path.GetExtension(file) == ".zip")
+                    {
+                        DirectoryInfo di = Directory.CreateDirectory(foldername);                        
+                        string MtHcSourceFolder = foldername + @"\" + file.Substring(file.LastIndexOf(@"\"), (file.Length - file.LastIndexOf(@"\") - 4));                        
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+                                                
+                        di = Directory.CreateDirectory(MtHcSourceFolder);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+                        
+                        ZipFile.ExtractToDirectory(file, foldername);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+
+                        string[] items = Directory.GetFiles(foldername);
+                        foreach (var item in items)
+                        {
+                            if (Path.GetExtension(item) == ".txt")
+                            {
+                                File.Move(item, MtHcSourceFolder + @"\" + item.Substring(item.LastIndexOf(@"\"), (item.Length - item.LastIndexOf(@"\"))));
+                                File.Delete(item);
+                            }
+                            else if (Path.GetExtension(item) == ".html")
+                            {
+                                ConvertHtmlFileToUTF8bom(item, MtHcSourceFolder);
+                               // File.Move(item, MtHcSourceFolder + @"\" + item.Substring(item.LastIndexOf(@"\"), (item.Length - item.LastIndexOf(@"\"))));
+                                File.Delete(item);
+                            }
+                        }
+                        (sender as BackgroundWorker).ReportProgress(progress++);                                               
+                        
+                        ZipFolder(foldername, MtHcSourceFolder);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+
+                    }
+                    else
+                    {
+                        MessageBox.Show("The specified folder does not contain valid zipped source file.");
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            }
+        }
+
+        private void ConvertHtmlFileToUTF8bom(string file, string MtHcSourceFolder)
+        {
+            using (StreamReader reader = new StreamReader(file))
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append(reader.ReadToEnd());
+                string fileContent = sb.ToString();
+                sb.Clear();
+                foreach (char character in fileContent)
+                {
+                    sb.Append(character);
+                }
+                sb.Replace(Environment.NewLine, ('\u000A').ToString());//-----------convert Windows newline with Unix newline
+                string newFile = MtHcSourceFolder + @"\" + file.Substring(file.LastIndexOf(@"\"), (file.Length - file.LastIndexOf(@"\")));                               
+                Encoding utfBom = new UTF8Encoding(true, true);//Encoding object will be used as parameter for File.WriteAllText method                           
+                File.WriteAllText(newFile, sb.ToString(), utfBom);                
+            }
+        }
+
+        private void Mt_chp_post_Click(object sender, RoutedEventArgs e)//-----MT CHP Post section Start
+        {
+            if (PathDisplay4.Text == "")
+            {
+                MessageBox.Show("Target folder was not selected");
+            }
+            else
+            {
+                ToolStack.IsEnabled = false;
+
+                progressBar4.Value = 0;
+                progressBar4.Maximum = (Directory.GetFiles(PathDisplay4.Text)).Length;
+                
+                BackgroundWorker bgw9 = new BackgroundWorker(); // initialization of backgroundworker to move app processing to the 2nd thread
+                bgw9.WorkerReportsProgress = true;
+                bgw9.DoWork += Bgw9_DoWork;
+                bgw9.ProgressChanged += Bgw9_ProgressChanged;
+                bgw9.RunWorkerCompleted += Bgw9_RunWorkerCompleted;
+                bgw9.RunWorkerAsync(PathDisplay4.Text);
+            }
+        }
+
+        private void Bgw9_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //-------------------------------> enable wpf controls
+            ToolStack.IsEnabled = true;
+            MessageBox.Show("Done");
+        }
+
+        private void Bgw9_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            progressBar4.Value = e.ProgressPercentage;
+        }
+
+        private void Bgw9_DoWork(object sender, DoWorkEventArgs e)
+        {
+            string pathDisplay = (string)e.Argument;
+            int progress = 0;
+            try
+            {
+                if (Directory.Exists(pathDisplay) == false)
+                {
+                    MessageBox.Show("The specified path does not lead to valid folder.");
+                    return;
+                }
+
+                string[] files = Directory.GetFiles(pathDisplay);
+
+                string foldername = pathDisplay + @"\" + "05_Final_Cisco";
+                string tempFolder = foldername + @"\" + "Temp";
+                if (Directory.Exists(foldername))
+                {
+                    MessageBoxButton buttons = MessageBoxButton.YesNo;
+
+                    MessageBoxResult result = MessageBox.Show("Cannot create folder \"05_Final_Cisco\" as it already exists\nDo you wish to overwrite it?", foldername, buttons);
+                    if (result == MessageBoxResult.No)
+                    {
+                        MessageBox.Show("Process Aborted.");
+                        return;
+                    }
+                    else
+                    {
+                        Directory.Delete(foldername, true);
+                    }
+                }
+                DirectoryInfo di = Directory.CreateDirectory(foldername);
+                (sender as BackgroundWorker).ReportProgress(progress++);
+
+                foreach (string file in files)
+                {
+                    if (Path.GetExtension(file) == ".zip")
+                    {
+                        di = Directory.CreateDirectory(tempFolder);
+                        string finalFolder = foldername + @"\" + file.Substring(file.LastIndexOf(@"\"), (file.Length - file.LastIndexOf(@"\") - 4));// + @"\" + file.Substring(file.LastIndexOf(@"\"), (file.Length - file.LastIndexOf(@"\") - 4));
+                        string finalFolderForZip = foldername + @"\" + file.Substring(file.LastIndexOf(@"\"), (file.Length - file.LastIndexOf(@"\") - 4));
+                        di = Directory.CreateDirectory(finalFolder);
+
+                        ZipFile.ExtractToDirectory(file, tempFolder);                        
+
+                        string[] directories = Directory.GetDirectories(tempFolder, "*", SearchOption.AllDirectories);
+                        List<string> engPostFolders = new List<string>();
+                        foreach (string directory in directories)
+                        {
+                            string directoryName = directory.Substring(directory.LastIndexOf(@"\"), (directory.Length - directory.LastIndexOf(@"\")));
+                            if (directoryName == @"\ENG_postprocess")
+                            {
+                                engPostFolders.Add(directory);
+                            }
+                        }                        
+
+                        foreach ( string engPostFolder in engPostFolders)
+                        {
+                            int lastSlash = engPostFolder.LastIndexOf(@"\");
+                            int secondToLastSlash = lastSlash > 0 ? engPostFolder.LastIndexOf(@"\", lastSlash - 1) : -1;
+                            string oldLangCode = engPostFolder.Substring(secondToLastSlash, (engPostFolder.LastIndexOf(@"\") - secondToLastSlash));
+                            string langCode = oldLangCode.Replace('-', '_');
+                            string finalLangCode;
+                            if (langCode == @"\nb_no")
+                            {
+                                finalLangCode = @"\no_no";
+                            }
+                            else if (langCode == @"\srl_rs")
+                            {
+                                finalLangCode = @"\sr_rs";
+                            }
+                            else
+                            {
+                                finalLangCode = langCode;
+                            }
+                            di = Directory.CreateDirectory(finalFolder + @"\" + finalLangCode);
+                            string[] contentFiles = Directory.GetFiles(engPostFolder);
+                            foreach (string contentFile in contentFiles)
+                            {
+                                if (Path.GetExtension(contentFile) == ".txt" || Path.GetExtension(contentFile) == ".html")
+                                {                                    
+                                    File.Move(contentFile, finalFolder + @"\" + finalLangCode + contentFile.Substring(contentFile.LastIndexOf(@"\"), (contentFile.LastIndexOf(@"@") - contentFile.LastIndexOf(@"\"))) + contentFile.Substring(contentFile.LastIndexOf(@"."), (contentFile.Length - contentFile.LastIndexOf(@"."))));
+                                }
+                            }
+                        }                        
+
+                        string[] folders = Directory.GetDirectories(finalFolder);
+                        foreach (string folder in folders)
+                        {
+                            string[] finalFiles = Directory.GetFiles(folder, "*", SearchOption.AllDirectories);
+                            foreach (string finalFile in finalFiles)
+                            {
+                                if (Path.GetExtension(finalFile) == ".txt")
+                                {
+                                    string fileContentWithQuotes = File.ReadAllText(finalFile);
+                                    string fileContent = DeleteQuotes(fileContentWithQuotes);
+                                    StringBuilder sb = new StringBuilder(Regex.Replace(fileContent, @"(\d{1,2})-(\d{1,2})-(\d{4})", @"$3-$2-$1"));
+
+                                    while (sb.ToString().Contains(" \","))
+                                    {
+                                        sb.Replace(" \",", "\",");
+                                    }
+
+                                    sb.Replace(Environment.NewLine, ('\u000A').ToString());//-----------convert Windows newline with Unix newline                                    
+                                    File.WriteAllText(finalFile, sb.ToString());
+                                    sb.Clear();
+                                }
+                                else if (Path.GetExtension(finalFile) == ".html")
+                                {
+                                    string fileContent = File.ReadAllText(finalFile);                                    
+                                    StringBuilder sb = new StringBuilder(fileContent);
+
+                                    while (sb.ToString().Contains(@"â‹®"))
+                                    {
+                                        sb.Replace(@"â‹®", @"⋮");
+                                    }
+                                    while (sb.ToString().Contains(@"â€”"))
+                                    {
+                                        sb.Replace(@"â€”", @"—");
+                                    }
+
+                                    sb.Replace(Environment.NewLine, ('\u000A').ToString());//-----------convert Windows newline with Unix newline
+                                    File.WriteAllText(finalFile, sb.ToString());
+                                    sb.Clear();
+                                }
+                            }                           
+                        }
+                        ZipFile.CreateFromDirectory(finalFolderForZip, finalFolderForZip + @".zip");
+                        Directory.Delete(finalFolderForZip, true);
+                        Directory.Delete(tempFolder, true);
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+                    }
+                    else
+                    {
+                        MessageBox.Show("The specified folder does not contain valid zipped source file.");
+                        return;
+                    }
+                }                                
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            }
+        }
+
+        private string DeleteQuotes(string fileContentWithQuotes)
+        {
+            StringBuilder sbl = new StringBuilder();
+            StringBuilder sblTEMP = new StringBuilder();
+            using (StringReader reader = new StringReader(fileContentWithQuotes))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (line.Contains("\"value\":"))
+                    {
+                        sblTEMP.Append(line);
+                        sblTEMP.Replace("\"", "");
+                        sblTEMP.Replace("value: ", "\"value\": \"");
+                        sblTEMP.Insert(sblTEMP.Length - 1, "\"");
+                        line = sblTEMP.ToString();
+                        sbl.AppendLine(line);
+                        sblTEMP.Clear();
+                    }
+                    else
+                    {
+                        if (line == "]")
+                        {
+                            sbl.Append(line);
+                        }
+                        else
+                        {
+                            sbl.AppendLine(line);
+                        }                        
+                    }
+                    
+                }
+                string result = sbl.ToString();
+                sbl.Clear();
+                return result;
+            }             
+        }
+
+        private void StackDropTarget_Drop(object sender, DragEventArgs e)//-----VOP EXCELL STUFF section Start
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] pathT = (string[])e.Data.GetData(DataFormats.FileDrop);
+                if (Path.GetExtension(pathT[0]) == ".xlsx")
+                {
+                    TargetPathDisplay.Text = pathT[0];
+                }
+                else
+                {
+                    MessageBox.Show("Incorrect file extension\nPlease use *.xlsx file.");
+                }
+            }
+        }
+
+        private void StackDropSource_Drop(object sender, DragEventArgs e)
+        {
+            string[] pathS = (string[])e.Data.GetData(DataFormats.FileDrop);
+            if (Path.GetExtension(pathS[0]) == ".xlsx")
+            {
+                SourcePathDisplay.Text = pathS[0];
+            }
+            else
+            {
+                MessageBox.Show("Incorrect file extension\nPlease use *.xlsx file.");
+            }
+        }
+
+        private void LoadExcel_Click(object sender, RoutedEventArgs e)
+        {
+            if (TargetPathDisplay.Text == "" || SourcePathDisplay.Text == "")
+            {
+                MessageBox.Show("Source or/and Target file was not selected");
+            }
+            else
+            {
+                VopStack.IsEnabled = false;                
+                VopProgressBar.IsIndeterminate = true;
+                BackgroundWorker bgw10 = new BackgroundWorker(); // initialization of backgroundworker to move app processing to the 2nd thread
+                bgw10.WorkerReportsProgress = true;
+                bgw10.DoWork += Bgw10_DoWork;
+                bgw10.ProgressChanged += Bgw10_ProgressChanged;
+                bgw10.RunWorkerCompleted += Bgw10_RunWorkerCompleted;
+                bgw10.RunWorkerAsync(TargetPathDisplay.Text);                
+            }
+        }
+
+        private void Bgw10_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //-------------------------------> enable wpf controls
+            VopProgressBar.IsIndeterminate = false;
+            VopStack.IsEnabled = true;            
+            ArrayList result = (ArrayList)e.Result;
+            List<string> languages = (List<string>)result[0];
+            int range = (int)result[1];
+            RowsCount.Text = range.ToString();
+            DropdownLanguages.ItemsSource = languages;
+            DropdownLanguages.UpdateLayout();
+            MessageBox.Show("Done");
+        }
+
+        private void Bgw10_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            VopProgressBar.Value = e.ProgressPercentage;
+        }
+
+        private void Bgw10_DoWork(object sender, DoWorkEventArgs e)
+        {
+            string pathDisplay = (string)e.Argument;            
+            try
+            {
+                //Create excel instance
+                Excel.Application excel = new Excel.Application();
+                //Create target workbook
+                Excel.Workbook workbook = excel.Workbooks.Open(pathDisplay);
+                //Open the source sheet
+                Excel.Worksheet sourceSheet = workbook.Worksheets[1];
+                //Get the used Range
+                Excel.Range usedRange = sourceSheet.UsedRange;
+                int range = usedRange.Rows.Count;
+                List<string> languages = new List<string>();
+                for (int i = 2; i <= range; i++)
+                {
+                    string language = (string)(sourceSheet.Cells[i, 2] as Excel.Range).Value;
+                    bool alreadyOnTheList = false;
+                    foreach (string lang in languages)
+                    {                        
+                        if (lang == language)
+                        {
+                            alreadyOnTheList = true;
+                        }
+                    }
+                    if (alreadyOnTheList == false)
+                    {
+                        languages.Add(language);                        
+                    }
+                }
+                //Close workbook                    
+                workbook.Close(false);
+                //Kill excelapp
+                excel.Quit();
+                var result = new ArrayList() { languages, range};
+                e.Result = result;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            }
+        }      
+               
+        private void CopyTrans_Click(object sender, RoutedEventArgs e)// ----- Copy Translation BUTTON
+        {
+            if (TargetPathDisplay.Text == "" || SourcePathDisplay.Text == "")
+            {
+                MessageBox.Show("Source or Target file was not selected");
+            }
+            else if (DropdownLanguages.SelectedItem as string == null)
+            {
+                MessageBox.Show("Language is not selected");
+            }
+            else
+            {
+                VopStack.IsEnabled = false;
+                VopProgressBar.Value = 0;
+                VopProgressBar.Maximum = int.Parse(RowsCount.Text);
+                string[] bgwBundle = { TargetPathDisplay.Text, SourcePathDisplay.Text, DropdownLanguages.SelectedItem as string };
+                BackgroundWorker bgw11 = new BackgroundWorker(); // initialization of backgroundworker to move app processing to the 2nd thread
+                bgw11.WorkerReportsProgress = true;
+                bgw11.DoWork += Bgw11_DoWork;
+                bgw11.ProgressChanged += Bgw11_ProgressChanged;
+                bgw11.RunWorkerCompleted += Bgw11_RunWorkerCompleted;
+                bgw11.RunWorkerAsync(bgwBundle);
+
+            }
+        }
+
+        private void Bgw11_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //-------------------------------> enable wpf controls
+            VopStack.IsEnabled = true;
+            MessageBox.Show("Done");
+        }
+
+        private void Bgw11_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            VopProgressBar.Value = e.ProgressPercentage;
+        }
+
+        private void Bgw11_DoWork(object sender, DoWorkEventArgs e)
+        {
+            string[] bgwBundle = (string[])e.Argument;
+            string target = bgwBundle[0];
+            string source = bgwBundle[1];
+            string language = bgwBundle[2];
+            int progress = 0;
+            try
+            {
+                Excel.Application excel = new Excel.Application();
+                //Create target workbook
+                Excel.Workbook excelTarget = excel.Workbooks.Open(target);
+                //Create source workbook
+                Excel.Workbook excelSource = excel.Workbooks.Open(source);
+
+                //Open the source sheet
+                Excel.Worksheet sourceSheet = excelSource.Worksheets[1];
+                //Open the target sheet
+                Excel.Worksheet targetSheet = excelTarget.Worksheets[1];
+
+                //Get the used Range
+                Excel.Range usedRange = sourceSheet.UsedRange;
+                int range = usedRange.Rows.Count;
+
+                for (int i = 2; i <= range; i++)
+                {
+                    if ((string)(sourceSheet.Cells[i, 2] as Excel.Range).Value == language)
+                    {
+                        targetSheet.Cells[i, 23] = (string)(sourceSheet.Cells[i, 23] as Excel.Range).Value;                        
+                    }
+                    (sender as BackgroundWorker).ReportProgress(progress++);
+                }
+                
+                //Close and save target workbooks
+                excelTarget.Close(true);
+                excelSource.Close(true);
+                //Kill excelapp
+                excel.Quit();
             }
             catch (Exception ex)
             {

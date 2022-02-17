@@ -74,7 +74,10 @@ namespace WPFCascadeCheckerUI
                                     var keyWords = node.GetElementsByTagName("keyword");
                                     var varnames = node.GetElementsByTagName("varname");
                                     var images = node.GetElementsByTagName("image");
-                                    if (node.ChildNodes.Count > (xmlText.Count() + keyWords.Count + varnames.Count + images.Count))
+                                    var apiNames = node.GetElementsByTagName("apiname");
+                                    var winTitles = node.GetElementsByTagName("wintitle");
+                                    var cmdNames = node.GetElementsByTagName("cmdname");
+                                    if (node.ChildNodes.Count > (xmlText.Count() + keyWords.Count + varnames.Count + images.Count + winTitles.Count + apiNames.Count + cmdNames.Count))
                                     {
                                         if (filePath != file)
                                         {
@@ -86,7 +89,7 @@ namespace WPFCascadeCheckerUI
                                         foreach (var child in node.ChildNodes)
                                         {
                                             var uiChild = (XmlNode)child;
-                                            if (uiChild.Name != "keyword" && uiChild.Name != "varname" && uiChild.Name != "image" && uiChild.NodeType.ToString() != "Text")
+                                            if (uiChild.Name != "keyword" && uiChild.Name != "varname" && uiChild.Name != "image" && uiChild.Name != "apiname" && uiChild.Name != "wintitle" && uiChild.Name != "cmdname" && uiChild.NodeType.ToString() != "Text")
                                             {
                                                 sw.WriteLine("            Forbidden element #{0}: {1}", uiCounter, uiChild.OuterXml);
                                                 uiCounter++;
@@ -161,7 +164,7 @@ namespace WPFCascadeCheckerUI
                                 }
                             }
                         }
-                        if (node.Name == "keyword")//-----------------------------------------------KEYWORD SECTION
+                        if (node.Name == "keyword")//------------------------------------------------KEYWORD SECTION
                         {
                             //Check if keyword has elements other than those listed.
                             if (node.HasChildNodes)
@@ -190,6 +193,56 @@ namespace WPFCascadeCheckerUI
                                         }
                                     }
                                 }                                                            
+                            }
+                        }
+                        if (node.Name == "cmd")//------------------------------------------------CMD SECTION
+                        {
+                            if (node.HasChildNodes)
+                            {
+                                var kwds = node.GetElementsByTagName("kwd");
+                                var synphs = node.GetElementsByTagName("synph");
+                                int kwdCounter = 0;
+                                foreach (PositionXmlElement synph in synphs)
+                                {
+                                    var nestedKWDs = synph.GetElementsByTagName("kwd");
+                                    kwdCounter += nestedKWDs.Count;
+                                }
+                                if (kwds.Count > 0 && kwdCounter != kwds.Count)
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    int kwdIssueCounter = 1;
+                                    foreach (var child in node.ChildNodes)
+                                    {
+                                        var kwdChild = (XmlNode)child;
+                                        if (kwdChild.Name == "kwd")
+                                        {
+                                            sw.WriteLine("            Forbidden element #{0}: {1}       *this element is allowed in node <cmd> only inside of <synph></synph> parent structure", kwdIssueCounter, kwdChild.OuterXml);
+                                            kwdIssueCounter++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (node.Name == "sep")//----------------------------------------------------SEP SECTION
+                        {
+                            if (node.HasChildNodes)
+                            {
+                                XmlNodeList citeChilds = node.GetElementsByTagName("var");
+                                if (citeChilds.Count != 0)
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Node: \"{0}\" have forbidden child node: \"var\"!  Line: {1}, Position: {2}\n      Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                }
+
                             }
                         }
                     }

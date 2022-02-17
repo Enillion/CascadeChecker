@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:WPFCascadeCheckerUI"
         mc:Ignorable="d"
         Icon="cascadechecker.ico"
-        Title="Cisco Omnitool" Height="320" Width="600" ResizeMode="CanResizeWithGrip">
+        Title="Cisco Omnitool v3.8" Height="320" Width="600" ResizeMode="CanResizeWithGrip">
     <Grid>
         <TabControl>
             <TabItem Header="XML Checker">
@@ -289,8 +289,8 @@
                             <RowDefinition Height="auto"/>
                             <RowDefinition Height="100"/>
                             <RowDefinition Height="25"/>
+                            <RowDefinition Height="30"/>                            
                             <RowDefinition Height="30"/>
-                            <RowDefinition Height="20"/>
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Column="1" Grid.Row="1"
@@ -344,6 +344,142 @@
                         ToolTipService.BetweenShowDelay="10000"
                         ToolTip="Process all subfolders of selected directory and fix date format and spacing in *.txt files, as well as language code uppercase in foldernames."
                         Click="ChpFix_Click"/>
+
+                        <Button x:Name="Rename"
+                        Grid.Column="3" Grid.Row="5"
+                        Margin="5,5,5,5"
+                        Content="Rename Files"
+                        ToolTipService.ShowDuration="6000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Rename files exported from AEM to their original names."
+                        Click="Rename_Click"/>
+
+                        <Button 
+                        Content="CHP Prep" 
+                        Margin="5,5,5,5" 
+                        Grid.Column="2" Grid.Row="6"
+                        ToolTipService.ShowDuration="6000"
+                        ToolTipService.BetweenShowDelay="10000"
+                        ToolTip="Prepares CHP package for XTM job creation."
+                        Click="ChpPrep_Click" />
+
+                        <Button x:Name="Mt_chp_prep"
+                            Content="MT CHP Prep"
+                            Margin="5,5,5,5"
+                            Grid.Column="1" Grid.Row="6"
+                            ToolTipService.ShowDuration="6000"
+                            ToolTipService.BetweenShowDelay="10000"
+                            ToolTip="Prepares MT CHP package for TMS job creation."
+                            Click="Mt_chp_prep_Click"/>
+
+                        <Button x:Name="Mt_chp_post"
+                                Content="MT CHP Post"
+                                Margin="5,5,5,5"
+                                Grid.Column="3" Grid.Row="6"
+                                ToolTipService.ShowDuration="6000"
+                                ToolTipService.BetweenShowDelay="10000"
+                                ToolTip="Performs post process on MT CHP package from TMS."
+                                Click="Mt_chp_post_Click"/>
+
+
+                    </Grid>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="VoP Excel Stuff">
+                <StackPanel x:Name="VopStack">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20*"/>
+                            <ColumnDefinition Width="120*"/>
+                            <ColumnDefinition Width="300*"/>
+                            <ColumnDefinition Width="120*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="20*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="15"/>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="40"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="40"/>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+
+                        <ProgressBar Grid.Column="1" Grid.Row="8" Grid.ColumnSpan="4"
+                                 Minimum="0" Name="VopProgressBar" Margin="20,5,20,0" IsIndeterminate="False"/>
+
+                        <TextBlock Grid.Column="1" Grid.Row="1"
+                        Text="Location of the TARGET xlsx file:"                        
+                        Grid.ColumnSpan ="2"/>
+
+                        <TextBox x:Name="TargetPathDisplay"
+                        Grid.Column="1" Grid.Row="2"
+                        Margin="5,5,5,5"
+                        Background="LightGoldenrodYellow"
+                        Text=""
+                        Grid.ColumnSpan="3"/>
+
+                        <StackPanel x:Name="StackDropTarget"
+                            AllowDrop="True"
+                            Grid.Column="1" Grid.Row="3"
+                            Background="LightGray"
+                            Grid.ColumnSpan="3"
+                            Margin="5,5,5,5"
+                            Drop="StackDropTarget_Drop"
+                        >
+                            <Label Content="Drop TATGET *.xlsx file here" HorizontalAlignment="Center" Foreground="DarkGray"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="1" Grid.Row="4"
+                        Text="Location of the SOURCE xlsx file:"
+                        Margin="5,5,5,0"
+                        Grid.ColumnSpan ="2"/>
+
+                        <TextBox x:Name="SourcePathDisplay"
+                        Grid.Column="1" Grid.Row="5"
+                        Margin="5,5,5,5"
+                        Background="LightGoldenrodYellow"
+                        Text=""
+                        Grid.ColumnSpan="3"/>
+
+                        <StackPanel x:Name="StackDropSource"
+                            AllowDrop="True"
+                            Grid.Column="1" Grid.Row="6"
+                            Background="LightGray"
+                            Grid.ColumnSpan="3"
+                            Margin="5,5,5,5"
+                            Drop="StackDropSource_Drop"
+                        >
+                            <Label Content="Drop Source *.xlsx file here" HorizontalAlignment="Center" Foreground="DarkGray"/>
+                        </StackPanel>
+
+                        <Button x:Name="LoadExcel"
+                                Content="Extract Languages"
+                                Margin="5,5,5,5"
+                                Grid.Column="1" Grid.Row="7"
+                                ToolTipService.ShowDuration="6000"
+                                ToolTipService.BetweenShowDelay="10000"
+                                ToolTip="Generate language list for selected project - use once per TARGET file."
+                                Click="LoadExcel_Click"/>
+
+                        <ComboBox Name ="DropdownLanguages"
+                                  Grid.Column="2" Grid.Row="7"
+                                  Margin="5,1,5,1"
+                                  SelectedIndex="0"/>
+
+                        <Button x:Name="CopyTrans"
+                                Content="Copy Translation"
+                                Grid.Column="3" Grid.Row="7"
+                                Margin="5,5,5,5"
+                                ToolTipService.ShowDuration="6000"
+                                ToolTipService.BetweenShowDelay="10000"
+                                ToolTip="Copies translation for selected language from SOURCE xslx to the TARGET xlsx."
+                                Click="CopyTrans_Click"/>
+
+                        <TextBox x:Name="RowsCount" Text="" Grid.Column="0" Grid.Row="0" Margin="5,5,5,5"/>
 
                     </Grid>
                 </StackPanel>
