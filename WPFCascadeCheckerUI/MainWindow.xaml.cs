@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using Excel = Microsoft.Office.Interop.Excel;
+using System.Linq;
 
 namespace WPFCascadeCheckerUI
 {
@@ -213,6 +214,46 @@ namespace WPFCascadeCheckerUI
 
         private void Bgw_DoWork2(object sender, DoWorkEventArgs e)
         {
+            var langCodesDic = new Dictionary<string, string>(){
+                {"arsa", "ar_SA"},
+                {"bgbg", "bg_BG"},
+                {"caes", "ca_ES"},
+                {"cscz", "cs_CZ"},
+                {"dadk", "da_DK"},
+                {"dede", "de_DE"},
+                {"elgr", "el_GR"},
+                {"eses", "es_ES"},
+                {"esco", "es_CO"},
+                {"etee", "et_EE"},
+                {"fifi", "fi_FI"},
+                {"frca", "fr_CA"},                
+                {"frfr", "fr_FR"},
+                {"heil", "he_IL"},
+                {"hrhr", "hr_HR"},
+                {"huhu", "hu_HU"},
+                {"itit", "it_IT"},
+                {"jajp", "ja_JP"},
+                {"kokr", "ko_KR"},
+                {"ltlt", "lt_LT"},
+                {"lvlv", "lv_LV"},
+                {"nlnl", "nl_NL"},
+                {"nono", "no_NO"},
+                {"plpl", "pl_PL"},
+                {"ptbr", "pt_BR"},
+                {"ptpt", "pt_PT"},
+                {"roro", "ro_RO"},
+                {"ruru", "ru_RU"},
+                {"sksk", "sk_SK"},
+                {"slsi", "sl_SI"},
+                {"srrs", "sr_RS"},
+                {"svse", "sv_SE"},
+                {"thth", "th_TH"},
+                {"trtr", "tr_TR"},
+                {"ukua", "uk_UA"},
+                {"zhcn", "zh_CN"},
+                {"zhhk", "zh_HK"},
+                {"zhtw", "zh_TW"}
+            };
             string[] arguments = (string[])e.Argument;            
             string pathDisplay = arguments[0];
             int progress = 0;
@@ -230,11 +271,12 @@ namespace WPFCascadeCheckerUI
 
                 foreach (string folder in folders)
                 {
+                    string folderLanguage = folder.Substring(folder.Length - 4);
                     string[] files = Directory.GetFiles(folder, "*", SearchOption.AllDirectories);
                     XmlAttribute xmlLang = null;
 
                     foreach (string file in files)
-                    {                      
+                    {                        
                         if (Path.GetExtension(file) == ".xml" || Path.GetExtension(file) == ".ditamap" || Path.GetExtension(file) == ".dita")
                         {
                             try
@@ -246,13 +288,17 @@ namespace WPFCascadeCheckerUI
                                     xml = new PositionXmlDocument();
                                     xml.Load(xr);
                                 }
-
+                                
                                 var root = xml.DocumentElement;
                                 string missingXmlLangPath = file.Substring(0, file.LastIndexOf('\\'));
                                 if (root.HasAttribute("xml:lang") == true)
                                 {
-                                    xmlLang = root.GetAttributeNode("xml:lang");                                    
-                                    if (xmlLang.Value == "nb_NO")
+                                    xmlLang = root.GetAttributeNode("xml:lang");
+                                    if (xmlLang.Value == "en_US" || xmlLang.Value == "en-US")
+                                    {
+                                        xmlLang.Value = langCodesDic[folderLanguage];
+                                    }
+                                    else if (xmlLang.Value == "nb_NO" || xmlLang.Value == "nb-NO")
                                     {
                                         xmlLang.Value = "no_NO";
                                     }
@@ -260,11 +306,15 @@ namespace WPFCascadeCheckerUI
                                     {
                                         xmlLang.Value = "es_CO";
                                     }
-                                    else if (xmlLang.Value == "sr_RS_Latn")
+                                    else if (xmlLang.Value == "sr_RS_Latn" || xmlLang.Value == "sr-RS")
                                     {
                                         xmlLang.Value = "sr_RS";
                                     }
-                                    continue;
+                                    else if ((xmlLang.Value == "fr_FR" && folderLanguage == "frca") || (xmlLang.Value == "fr-FR" && folderLanguage == "frca"))
+                                    {
+                                        xmlLang.Value = "fr_CA";
+                                    }
+                                    continue; 
                                 }
                             }
                             catch (Exception exc)
@@ -277,7 +327,7 @@ namespace WPFCascadeCheckerUI
                     {
                         if (xmlLang != null)
                         {
-                            if (Path.GetExtension(file) == ".xml" || Path.GetExtension(file) == ".ditamap")
+                            if (Path.GetExtension(file) == ".xml" || Path.GetExtension(file) == ".ditamap" || Path.GetExtension(file) == ".dita")
                             {
                                 try
                                 {
@@ -289,7 +339,7 @@ namespace WPFCascadeCheckerUI
                                         xml.Load(xr);
                                     }
 
-                                    if (xml.DocumentElement.HasAttribute("xml:lang") == false || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "nb_NO" || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "es-CO" || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "sr_RS_Latn")
+                                    if (xml.DocumentElement.HasAttribute("xml:lang") == false || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "en_US" || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "en-US" || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "nb_NO" || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "es-CO" || xml.DocumentElement.GetAttributeNode("xml:lang").Value == "sr_RS_Latn" || (xml.DocumentElement.GetAttributeNode("xml:lang").Value == "fr_FR" && folderLanguage == "frca"))
                                     {
                                         if (xml.DocumentElement.HasAttribute("xml:lang") == true)
                                         {
@@ -529,6 +579,7 @@ namespace WPFCascadeCheckerUI
         {
             string filePath = (string)e.Argument;
             int progress = 0;
+            bool passoloMarker = false;
 
             try
             {
@@ -543,36 +594,51 @@ namespace WPFCascadeCheckerUI
 
                 foreach (var file in files)
                 {
-                    if (Path.GetExtension(file) == ".sdlxliff") //only sdlxliff files exported frpm pasolo are processed
-                    {
-                        string languageCode = file.Substring((file.LastIndexOf("_") + 1), ((file.Length - 10) - file.LastIndexOf("_"))).ToLower();
-                        languageCode = SwissKnifeMethods.CheckLanguageCode(languageCode);
-                        string foldername = filePath + @"\" + languageCode;
-                        if (Directory.Exists(foldername))
-                        {
-                            MessageBoxButton buttons = MessageBoxButton.YesNo;
+                    string languageCode = "";
 
-                            MessageBoxResult result = MessageBox.Show("Cannot create folder as it already exists\nDo you wish to continue anyway?", languageCode, buttons);
-                            if (result == MessageBoxResult.No)
-                            {
-                                return;
-                            }
-                            else
-                            {
-                                continue;
-                            }
-                        }
-                        try
+                    if (Path.GetExtension(file) == ".sdlxliff") //only sdlxliff files exported from pasolo are processed
+                    {
+                        passoloMarker = true;
+                        languageCode = file.Substring((file.LastIndexOf("_") + 1), ((file.Length - 10) - file.LastIndexOf("_"))).ToLower();
+                        languageCode = SwissKnifeMethods.CheckLanguageCode(languageCode);
+
+                    }
+                    else if (Path.GetExtension(file) == ".xml" || Path.GetExtension(file) == ".ditamap" || Path.GetExtension(file) == ".dita") //only files exported from AEM are processed)
+                    {
+                        passoloMarker = false;
+                        languageCode = file.Substring((file.LastIndexOf('.') - 4), 4);
+                        languageCode = SwissKnifeMethods.CheckLanguageCodeTMS(languageCode);
+                        if (languageCode == null)
                         {
-                            //Folder creation and moving file from default location to the new folder
-                            DirectoryInfo di = Directory.CreateDirectory(foldername);
-                            File.Move(file, foldername + @"\" + file.Substring(file.LastIndexOf(@"\"), (file.Length - file.LastIndexOf(@"\"))));
+                            return;
                         }
-                        catch (Exception dirFile)
+                    }
+                    
+                    string foldername = filePath + @"\" + languageCode;
+                    if (Directory.Exists(foldername))
+                    {
+                        MessageBoxButton buttons = MessageBoxButton.YesNo;
+
+                        MessageBoxResult result = MessageBox.Show("Cannot create folder as it already exists\nDo you wish to continue anyway?", languageCode, buttons);
+                        if (result == MessageBoxResult.No)
                         {
-                            MessageBox.Show(dirFile.Message);
+                            return;
+                        }
+                        else
+                        {
                             continue;
                         }
+                    }
+                    try
+                    {
+                        //Folder creation and moving file from default location to the new folder
+                        DirectoryInfo di = Directory.CreateDirectory(foldername);
+                        File.Move(file, foldername + @"\" + file.Substring(file.LastIndexOf(@"\"), (file.Length - file.LastIndexOf(@"\"))));
+                    }
+                    catch (Exception dirFile)
+                    {
+                        MessageBox.Show(dirFile.Message);
+                        continue;
                     }
                     (sender as BackgroundWorker).ReportProgress(progress++);
                 }
@@ -595,7 +661,7 @@ namespace WPFCascadeCheckerUI
 
             try
             {
-                XmlTools.CreateConfigFile(filePath);
+                XmlTools.CreateConfigFile(filePath, passoloMarker);
                 (sender as BackgroundWorker).ReportProgress(progress++);
             }
             catch (Exception configException)
@@ -1411,25 +1477,32 @@ namespace WPFCascadeCheckerUI
                         (sender as BackgroundWorker).ReportProgress(progress++);
                         
                         ZipFile.ExtractToDirectory(file, foldername);
-                        (sender as BackgroundWorker).ReportProgress(progress++);
+                        (sender as BackgroundWorker).ReportProgress(progress++);                        
 
-                        string[] items = Directory.GetFiles(foldername);
+                        string[] items = Directory.GetFiles(foldername, "*", SearchOption.AllDirectories);
                         foreach (var item in items)
                         {
-                            if (Path.GetExtension(item) == ".txt")
+                            if (Path.GetExtension(item) == ".txt" || Path.GetExtension(item) == ".docx" || Path.GetExtension(item) == ".xlsx") //8.11.2023 added docx & xlsx extension support
                             {
                                 File.Move(item, MtHcSourceFolder + @"\" + item.Substring(item.LastIndexOf(@"\"), (item.Length - item.LastIndexOf(@"\"))));
                                 File.Delete(item);
                             }
-                            else if (Path.GetExtension(item) == ".html")
+                            else if (Path.GetExtension(item) == ".html" || Path.GetExtension(item) == ".htm")
                             {
                                 ConvertHtmlFileToUTF8bom(item, MtHcSourceFolder);
                                // File.Move(item, MtHcSourceFolder + @"\" + item.Substring(item.LastIndexOf(@"\"), (item.Length - item.LastIndexOf(@"\"))));
                                 File.Delete(item);
-                            }
+                            }                          
                         }
-                        (sender as BackgroundWorker).ReportProgress(progress++);                                               
-                        
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+
+                        string[] folders = Directory.GetDirectories(MtHcSourceFolder);                        
+
+                        foreach (var folder in folders)
+                        {
+                            Directory.Delete(folder, recursive: true);
+                        }
+
                         ZipFolder(foldername, MtHcSourceFolder);
                         (sender as BackgroundWorker).ReportProgress(progress++);
 
@@ -1550,7 +1623,7 @@ namespace WPFCascadeCheckerUI
                         foreach (string directory in directories)
                         {
                             string directoryName = directory.Substring(directory.LastIndexOf(@"\"), (directory.Length - directory.LastIndexOf(@"\")));
-                            if (directoryName == @"\ENG_postprocess")
+                            if (directoryName == @"\ENG_postprocess" || directoryName == @"\ENG_Postprocess" || directoryName == @"\ENG_post" || directoryName == @"\ENG_Post")
                             {
                                 engPostFolders.Add(directory);
                             }
@@ -1571,6 +1644,10 @@ namespace WPFCascadeCheckerUI
                             {
                                 finalLangCode = @"\sr_rs";
                             }
+                            else if (langCode == @"\ar_sa")
+                            {
+                                finalLangCode = @"\ar_ae";
+                            }
                             else
                             {
                                 finalLangCode = langCode;
@@ -1579,7 +1656,7 @@ namespace WPFCascadeCheckerUI
                             string[] contentFiles = Directory.GetFiles(engPostFolder);
                             foreach (string contentFile in contentFiles)
                             {
-                                if (Path.GetExtension(contentFile) == ".txt" || Path.GetExtension(contentFile) == ".html")
+                                if (Path.GetExtension(contentFile) == ".txt" || Path.GetExtension(contentFile) == ".html" || Path.GetExtension(contentFile) == ".docx" || Path.GetExtension(contentFile) == ".xlsx")
                                 {                                    
                                     File.Move(contentFile, finalFolder + @"\" + finalLangCode + contentFile.Substring(contentFile.LastIndexOf(@"\"), (contentFile.LastIndexOf(@"@") - contentFile.LastIndexOf(@"\"))) + contentFile.Substring(contentFile.LastIndexOf(@"."), (contentFile.Length - contentFile.LastIndexOf(@"."))));
                                 }
@@ -1657,7 +1734,9 @@ namespace WPFCascadeCheckerUI
                     if (line.Contains("\"value\":"))
                     {
                         sblTEMP.Append(line);
-                        sblTEMP.Replace("\"", "");
+                        sblTEMP.Replace("\\\"", "");
+                        sblTEMP.Replace("\"", "");                        
+                        sblTEMP.Replace("\\", "");//
                         sblTEMP.Replace("value: ", "\"value\": \"");
                         sblTEMP.Insert(sblTEMP.Length - 1, "\"");
                         line = sblTEMP.ToString();
@@ -1874,6 +1953,313 @@ namespace WPFCascadeCheckerUI
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            }
+        }
+
+        private void GloDropSource_Drop(object sender, DragEventArgs e)//-----GLOSSARY MAKER section Start
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] gloPath = (string[])e.Data.GetData(DataFormats.FileDrop);
+                if (Path.GetExtension(gloPath[0]) == ".xlsx")
+                {
+                    GloSourcePathDisplay.Text = gloPath[0];
+                }
+                else
+                {
+                    MessageBox.Show("Incorrect file extension\nPlease use *.xlsx file.");
+                }
+            }
+        }
+
+        private void CreateGlo_Click(object sender, RoutedEventArgs e)
+        {
+            if (GloSourcePathDisplay.Text == "")
+            {
+                MessageBox.Show("Source file was not selected");
+            }            
+            else
+            {
+                GloStack.IsEnabled = false;
+                GloProgressBar.IsEnabled = true;
+                GloProgressBar.Value = 0;
+                GloProgressBar.Maximum = 38;
+                string[] bgwBundle = { GloSourcePathDisplay.Text };
+                BackgroundWorker bgw12 = new BackgroundWorker(); // initialization of backgroundworker to move app processing to the 2nd thread
+                bgw12.WorkerReportsProgress = true;
+                bgw12.DoWork += Bgw12_DoWork;
+                bgw12.ProgressChanged += Bgw12_ProgressChanged;
+                bgw12.RunWorkerCompleted += Bgw12_RunWorkerCompleted;
+                bgw12.RunWorkerAsync(bgwBundle);
+
+            }
+        }
+
+        private void Bgw12_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //-------------------------------> enable wpf controls
+            GloStack.IsEnabled = true;
+            MessageBox.Show("Done");
+        }
+
+        private void Bgw12_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            GloProgressBar.Value = e.ProgressPercentage;
+        }
+
+        private void Bgw12_DoWork(object sender, DoWorkEventArgs e)
+        {
+            string[] bgwBundle = (string[])e.Argument;
+            string source = bgwBundle[0];
+            string gloPath = source.Substring(0, source.LastIndexOf(@"\") + 1) + @"Glossaries\";
+            Directory.CreateDirectory(gloPath);
+            int progress = 0;            
+
+            try
+            {
+                Excel.Application excel = new Excel.Application();
+                //Create source workbook
+                Excel.Workbook excelSource = excel.Workbooks.Open(source);
+
+                //Open the source sheet
+                Excel.Worksheet sourceSheet = excelSource.Worksheets[1];
+                
+                //Get the used Range
+                Excel.Range usedRange = sourceSheet.UsedRange;
+                int range = usedRange.Rows.Count;
+
+                StringBuilder sb = new StringBuilder();
+                Encoding utf16 = new UnicodeEncoding(false, true);//Encoding object will be used as parameter for File.WriteAllText method
+
+                for (int i = 15; i <= range; i+=2)
+                {
+                    if ((sourceSheet.Cells[1, i] as Excel.Range).Value != null && (string)(sourceSheet.Cells[1, i] as Excel.Range).Value != "")
+                    {
+                        sb.AppendLine(SwissKnifeMethods.GetNumericLanguageCode((string)(sourceSheet.Cells[1, i] as Excel.Range).Value));//add Internal Language Code in the first line
+                        for (int j = 2; j <= range; j++)
+                        {
+                            if ((sourceSheet.Cells[j, i] as Excel.Range).Value != null || (string)(sourceSheet.Cells[j, i] as Excel.Range).Value != "")
+                            {
+                                sb.AppendLine(((string)(sourceSheet.Cells[j, 5] as Excel.Range).Value) + "\t" + ((string)(sourceSheet.Cells[j, i] as Excel.Range).Value));
+                            }                           
+                        }
+                        string glossaryFile = gloPath + SwissKnifeMethods.ConvertGloLanguageCode((string)(sourceSheet.Cells[1, i] as Excel.Range).Value) + "_Terminology.glo";
+                        File.WriteAllText(glossaryFile, sb.ToString(), utf16);
+                        sb.Clear();
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                    
+                }
+
+                //Close and save target workbooks                
+                excelSource.Close(true);
+                //Kill excelapp
+                excel.Quit();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            }
+        }
+
+        //XML Lang Lists TAB Elements
+        private void ImportTranslations_Click(object sender, RoutedEventArgs e)
+        {
+            if (LangListTargetPathDisplay.Text == "")
+            {
+                MessageBox.Show("Target folder was not selected");
+            }
+            else
+            {
+                LangListStack.IsEnabled = false;
+                LangListProgressBar.Value = 0;
+                LangListProgressBar.Maximum = (Directory.GetFiles(LangListSourcePathDisplay.Text, "*", SearchOption.AllDirectories)).Length - 1;
+                string[] arguments = { LangListTargetPathDisplay.Text, LangListSourcePathDisplay.Text };
+
+                BackgroundWorker bgw = new BackgroundWorker();
+                bgw.WorkerReportsProgress = true;
+                bgw.DoWork += Bgw_DoWork3;
+                bgw.ProgressChanged += Bgw_ProgressChanged3;
+                bgw.RunWorkerCompleted += Bgw_RunWorkerCompleted3;
+                bgw.RunWorkerAsync(arguments);
+            }
+        }
+
+        private void Bgw_RunWorkerCompleted3(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //-------------------------------> enable wpf controls
+            LangListStack.IsEnabled = true;
+            MessageBox.Show("Done");
+        }
+
+        private void Bgw_ProgressChanged3(object sender, ProgressChangedEventArgs e)
+        {
+            LangListProgressBar.Value = e.ProgressPercentage;
+        }
+
+        private void Bgw_DoWork3(object sender, DoWorkEventArgs e)
+        {
+            var langDictionary = new Dictionary<string, string>(){
+                {"arsa", "ar-SA"},
+                {"bgbg", "bg-BG"},
+                {"caes", "ca-ES"},
+                {"cs-CZ", "Czech"},
+                {"da-DK", "Danish"},
+                {"de-DE", "German"},
+                {"elgr", "el-GR"},
+                {"es-ES", "Spanish"},
+                {"esco", "es-CO"},
+                {"etee", "et-EE"},
+                {"en-US", "English"},
+                {"fifi", "fi-FI"},
+                {"frca", "fr-CA"},
+                {"fr-FR", "French"},
+                {"heil", "he-IL"},
+                {"hr-HR", "Croatian"},
+                {"hu-HU", "Hungarian"},
+                {"it-IT", "Italian"},
+                {"jajp", "ja-JP"},
+                {"kokr", "ko-KR"},
+                {"ltlt", "lt-LT"},
+                {"lvlv", "lv-LV"},
+                {"nl-NL", "Dutch"},
+                {"nb-NO", "Norwegian"},
+                {"pl-PL", "Polish"},
+                {"ptbr", "pt-BR"},
+                {"pt-PT", "Portuguese"},
+                {"roro", "ro-RO"},
+                {"ru-RU", "Russian"},
+                {"sksk", "sk-SK"},
+                {"sl-SI", "Slovenian"},
+                {"sr-Latn-RS", "Serbian"},
+                {"sv-SE", "Swedish"},
+                {"thth", "th-TH"},
+                {"tr-TR", "Turkish"},
+                {"ukua", "uk-UA"},
+                {"zhcn", "zh-CN"},
+                {"zhhk", "zh-HK"},
+                {"zhtw", "zh-TW"}
+            };
+
+            string[] LangListArguments = (string[])e.Argument;
+            string targetFilePath = LangListArguments[0];
+            string translatedFolderPath = LangListArguments[1];
+            string finalTargetFilePath = targetFilePath.Substring(0, targetFilePath.LastIndexOf(@"\")) + @"\TRANSLATED_" +
+                    targetFilePath.Substring(targetFilePath.LastIndexOf(@"\") + 1, (targetFilePath.Length - targetFilePath.LastIndexOf(@"\") - 1));
+            int progress = 0;
+            try
+            {
+                if (Directory.Exists(translatedFolderPath) == false)
+                {
+                    MessageBox.Show("The specified path to translated files does not lead to valid folder.");
+                    return;
+                }
+
+                if (Path.GetExtension(targetFilePath) == ".xml")
+                {
+                    XmlDocument targetXML = new XmlDocument();
+                    
+                    using (XmlReader xr = new XmlTextReader(targetFilePath) { Namespaces = false })
+                    {
+                        targetXML = new PositionXmlDocument();
+                        targetXML.Load(xr);
+                    }
+                    
+                    XmlNodeList targetNodes = targetXML.SelectSingleNode("CustomTexts").ChildNodes;// list of "Language" nodes (with all childnodes) from Target file
+
+                    string[] filePaths = Directory.GetFiles(translatedFolderPath);
+                    foreach (string filePath in filePaths)
+                    {
+                        if (Path.GetExtension(filePath) == ".xml")
+                        {
+                            XmlDocument sourceXML = new XmlDocument();
+
+                            using (XmlReader xr2 = new XmlTextReader(filePath) { Namespaces = false })
+                            {
+                                sourceXML = new PositionXmlDocument();
+                                sourceXML.Load(xr2);
+                            }
+
+                            XmlNode sourceLanguegeNode = sourceXML.Selec­tSingleNode("/CustomTexts/Language");// select first "Language" node (the one with translation)
+                            XmlNodeList translatedNodes = sourceLanguegeNode.ChildNodes;// list of translated child nodes of "Language" parent node
+                            
+
+                            foreach (XmlNode targetLanguageNode in targetNodes)
+                            {
+                                if (targetLanguageNode.Name == "Language" && (targetLanguageNode.Attributes["BaseLanguage"].Value == sourceLanguegeNode.Attributes["BaseLanguage"].Value || targetLanguageNode.Attributes["BaseLanguage"].Value == langDictionary[sourceLanguegeNode.Attributes["BaseLanguage"].Value]))
+                                {
+                                    while (targetLanguageNode.HasChildNodes)
+                                    {
+                                        targetLanguageNode.RemoveChild(targetLanguageNode.FirstChild);// if "Language" node is source == "Language" from translated file, delete contents of Target "Language"
+                                    }
+
+                                    foreach (XmlNode translatedNode in translatedNodes)
+                                    {
+                                        XmlNode nodeToAppend = targetXML.ImportNode(translatedNode, true);
+                                        targetLanguageNode.AppendChild(nodeToAppend);
+                                    }
+                                }
+                                
+                            }
+                        }
+                        (sender as BackgroundWorker).ReportProgress(progress++);
+                    }
+                    //delete "CustomTexts" node
+                    XmlNodeList ctNodes = targetXML.GetElementsByTagName("CustomTexts");
+                    XmlNode ctNode = ctNodes[0];
+                    ctNode.ParentNode.RemoveChild(ctNode);
+
+                    XmlNode newCT = targetXML.CreateNode("element", "CustomTexts", "");                    
+                    targetXML.AppendChild(newCT);
+                    XmlElement root = targetXML.DocumentElement;
+
+                    // Add a new attribute.
+                    root.SetAttribute("Locked", "False");
+                    root.SetAttribute("Version", "CustomTexts v1.0");
+                  
+                    foreach (XmlNode node in targetNodes)
+                    {
+                        XmlNode child = targetXML.ImportNode(node, true);
+                        targetXML.SelectSingleNode("CustomTexts").AppendChild(child);
+                    }                    
+                    targetXML.Save(finalTargetFilePath);
+                }
+            }
+            catch (Exception langListEx)
+            {
+
+                MessageBox.Show(langListEx.Message + "\n" + langListEx.StackTrace);
+            }
+
+        }
+
+        private void LangListStackDropTarget_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] pathT = (string[])e.Data.GetData(DataFormats.FileDrop);
+                if (Path.GetExtension(pathT[0]) == ".xml")
+                {
+                    LangListTargetPathDisplay.Text = pathT[0];
+                }
+                else
+                {
+                    MessageBox.Show("Incorrect file extension\nPlease use *.XML file.");
+                }
+            }
+        }
+
+        private void LangListStackDropTranslated_Drop(object sender, DragEventArgs e)
+        {
+
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] path = (string[])e.Data.GetData(DataFormats.FileDrop);
+                LangListSourcePathDisplay.Text = path[0];
             }
         }
     }

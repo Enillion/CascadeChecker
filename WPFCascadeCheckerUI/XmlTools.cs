@@ -32,28 +32,38 @@ namespace WPFCascadeCheckerUI
                         var node = (PositionXmlElement)element;
                         if (node.Name == "menucascade")//---------------------------------------------MENUCASCADE SECTION
                         {
-                            //CheckIfMenucascadeHaveText(node);
-                            if (node.Name == "menucascade" && node.InnerText != "")
+                            //Checkif menucascade have content inside:
+                            if (node.InnerText != "")
                             {
-                                //get all child nodes of type XmlText                        
-                                var childNodes = node.ChildNodes.OfType<XmlText>();
-                                if (childNodes.Count() != 0)
+                                //get all child nodes of type XmlText:                        
+                                //var childNodes = node.ChildNodes.OfType<XmlText>();
+                                //get all child uicontrol nodes: 
+                                var uicontrols = node.GetElementsByTagName("uicontrol");
+
+                                if (node.HasChildNodes)
                                 {
-                                    if (filePath != file)
+                                    if (node.ChildNodes.Count > uicontrols.Count)
                                     {
-                                        sw.WriteLine("\n\n\nFile: {0}", file);
-                                        filePath = file;
-                                    }
-                                    sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
-                                    int xtCounter = 1;
-                                    foreach (var xT in childNodes)
-                                    {
-                                        sw.WriteLine("            Forbidden text element #{0}: {1}", xtCounter, xT.OuterXml);
-                                        xtCounter++;
+                                        if (filePath != file)
+                                        {
+                                            sw.WriteLine("\n\n\nFile: {0}", file);
+                                            filePath = file;
+                                        }
+                                        sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                        int xtCounter = 1;
+                                        foreach (var child in node.ChildNodes)
+                                        {
+                                            var menuChild = (XmlNode)child;
+                                            if (menuChild.Name != "uicontrol")
+                                            {
+                                                sw.WriteLine("            Forbidden element #{0}: {1}", xtCounter, menuChild.OuterXml);
+                                                xtCounter++;
+                                            }                                            
+                                        } 
                                     }
                                 }
                             }
-                            if (node.Name == "menucascade" && node.IsEmpty)
+                            if (node.Name == "menucascade" && (node.IsEmpty || node.HasChildNodes == false))
                             {
                                 if (filePath != file)
                                 {
@@ -77,7 +87,10 @@ namespace WPFCascadeCheckerUI
                                     var apiNames = node.GetElementsByTagName("apiname");
                                     var winTitles = node.GetElementsByTagName("wintitle");
                                     var cmdNames = node.GetElementsByTagName("cmdname");
-                                    if (node.ChildNodes.Count > (xmlText.Count() + keyWords.Count + varnames.Count + images.Count + winTitles.Count + apiNames.Count + cmdNames.Count))
+                                    var pElement = node.GetElementsByTagName("p");
+                                    var textNode = node.GetElementsByTagName("text");
+                                    var comments = node.ChildNodes.OfType<XmlComment>();
+                                    if (node.ChildNodes.Count > (xmlText.Count() + keyWords.Count + varnames.Count + images.Count + winTitles.Count + apiNames.Count + cmdNames.Count + pElement.Count + textNode.Count + comments.Count()))
                                     {
                                         if (filePath != file)
                                         {
@@ -89,7 +102,7 @@ namespace WPFCascadeCheckerUI
                                         foreach (var child in node.ChildNodes)
                                         {
                                             var uiChild = (XmlNode)child;
-                                            if (uiChild.Name != "keyword" && uiChild.Name != "varname" && uiChild.Name != "image" && uiChild.Name != "apiname" && uiChild.Name != "wintitle" && uiChild.Name != "cmdname" && uiChild.NodeType.ToString() != "Text")
+                                            if (uiChild.Name != "keyword" && uiChild.Name != "varname" && uiChild.Name != "image" && uiChild.Name != "apiname" && uiChild.Name != "wintitle" && uiChild.Name != "cmdname" && uiChild.NodeType.ToString() != "Text" && uiChild.Name != "p" && uiChild.NodeType.ToString() != "Comment")
                                             {
                                                 sw.WriteLine("            Forbidden element #{0}: {1}", uiCounter, uiChild.OuterXml);
                                                 uiCounter++;
@@ -113,7 +126,7 @@ namespace WPFCascadeCheckerUI
                                         foreach (var child in node.ChildNodes)
                                         {
                                             var uiChild = (XmlNode)child;
-                                            if (uiChild.Name != "keyword" && uiChild.Name != "varname" && uiChild.Name != "image" && uiChild.NodeType.ToString() != "Text")
+                                            if (uiChild.Name != "keyword" && uiChild.Name != "varname" && uiChild.Name != "image" && uiChild.Name != "apiname" && uiChild.Name != "wintitle" && uiChild.Name != "cmdname" && uiChild.NodeType.ToString() != "Text" && uiChild.Name != "p" && uiChild.Name != "text" && uiChild.NodeType.ToString() != "Comment")
                                             {
                                                 sw.WriteLine("            Forbidden element #{0}: {1}", uiCounter, uiChild.OuterXml);
                                                 uiCounter++;
@@ -133,14 +146,15 @@ namespace WPFCascadeCheckerUI
                             if (node.HasChildNodes)
                             {
                                 XmlNodeList citeChilds = node.GetElementsByTagName("xref");
-                                if (citeChilds.Count != 0)
+                                XmlNodeList citeCites = node.GetElementsByTagName("cite");
+                                if (citeChilds.Count != 0 || citeCites.Count != 0)
                                 {
                                     if (filePath != file)
                                     {
                                         sw.WriteLine("\n\n\nFile: {0}", file);
                                         filePath = file;
                                     }
-                                    sw.WriteLine("\n  **Node: \"{0}\" have forbidden child node: \"xref\"!  Line: {1}, Position: {2}\n      Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    sw.WriteLine("\n  **Node: \"{0}\" have forbidden child node: \"xref\" and \"cite\" are not allowed!  Line: {1}, Position: {2}\n      Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
                                 }
 
                             }
@@ -214,7 +228,7 @@ namespace WPFCascadeCheckerUI
                                         sw.WriteLine("\n\n\nFile: {0}", file);
                                         filePath = file;
                                     }
-                                    sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    sw.WriteLine("\n  **Forbidden <kwd> element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
                                     int kwdIssueCounter = 1;
                                     foreach (var child in node.ChildNodes)
                                     {
@@ -245,6 +259,255 @@ namespace WPFCascadeCheckerUI
 
                             }
                         }
+                        if (node.Name == "prolog")//---------------------------------------------PROLOG SECTION
+                        {                            
+                            if (node.Name == "prolog" && node.InnerText != "")
+                            {
+                                //get all child nodes of type XmlText                        
+                                var childNodes = node.ChildNodes.OfType<XmlText>();
+                                if (childNodes.Count() != 0)
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    int xtCounter = 1;
+                                    foreach (var xT in childNodes)
+                                    {
+                                        sw.WriteLine("            Forbidden text element #{0}: {1}", xtCounter, xT.OuterXml);
+                                        xtCounter++;
+                                    }
+                                }
+                            }                            
+                        }
+                        if (node.Name == "metadata")//---------------------------------------------METADATA SECTION
+                        {
+                            //CheckIfMenucascadeHaveText(node);
+                            if (node.Name == "metadata" && node.InnerText != "")
+                            {
+                                //get all child nodes of type XmlText                        
+                                var childNodes = node.ChildNodes.OfType<XmlText>();
+                                if (childNodes.Count() != 0)
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    int xtCounter = 1;
+                                    foreach (var xT in childNodes)
+                                    {
+                                        sw.WriteLine("            Forbidden text element #{0}: {1}", xtCounter, xT.OuterXml);
+                                        xtCounter++;
+                                    }
+                                }
+                            }                            
+                        }
+                        if (node.Name == "prodinfo")//---------------------------------------------PRODINFO SECTION
+                        {                            
+                            if (node.Name == "prodinfo" && node.InnerText != "")
+                            {
+                                //get all child nodes of type XmlText                        
+                                var childNodes = node.ChildNodes.OfType<XmlText>();
+                                if (childNodes.Count() != 0)
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    int xtCounter = 1;
+                                    foreach (var xT in childNodes)
+                                    {
+                                        sw.WriteLine("            Forbidden text element #{0}: {1}", xtCounter, xT.OuterXml);
+                                        xtCounter++;
+                                    }
+                                }
+                            }
+                            if (node.Name == "prodinfo" && (node.IsEmpty || node.HasChildNodes == false))
+                            {
+                                if (filePath != file)
+                                {
+                                    sw.WriteLine("\n\n\nFile: {0}", file);
+                                    filePath = file;
+                                }
+                                sw.WriteLine("\n  **Prodinfo node is empty: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                            }
+                        }
+                        if (node.Name == "varname")//------------------------------------------------VARNAME SECTION
+                        {
+                            //Check if varname has elements other than text.
+                            if (node.HasChildNodes)
+                            {
+                                var xmlText = node.ChildNodes.OfType<XmlText>();
+                                var comments = node.ChildNodes.OfType<XmlComment>();                                
+
+                                if (node.ChildNodes.Count > (xmlText.Count() + comments.Count()))
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Node: \"{0}\" have forbidden child nodes!  Line: {1}, Position: {2}\n      Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    int keyWordCounter = 1;
+                                    foreach (var child in node.ChildNodes)
+                                    {
+                                        var keyWordChild = (XmlNode)child;
+                                        if (keyWordChild.NodeType.ToString() != "Comment" && keyWordChild.NodeType.ToString() != "Text")
+                                        {
+                                            sw.WriteLine("            Only text elements are allowed. Forbidden element #{0}: {1}", keyWordCounter, keyWordChild.OuterXml);
+                                            keyWordCounter++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (node.Name == "synph")//-----------------------------------------------SYNPH SECTION
+                        {
+                            //Check if synph has elements other than those listed.
+                            if (node.HasChildNodes)
+                            {
+                                var xmlText = node.ChildNodes.OfType<XmlText>();
+                                var codephs = node.GetElementsByTagName("codeph");
+                                var delims = node.GetElementsByTagName("delim");
+                                var kwds = node.GetElementsByTagName("kwd");
+                                var opers = node.GetElementsByTagName("oper");
+                                var options = node.GetElementsByTagName("option");
+                                var parmnames = node.GetElementsByTagName("parmname");
+                                var seps = node.GetElementsByTagName("sep");
+                                var synphs = node.GetElementsByTagName("synph");
+                                var vars = node.GetElementsByTagName("var");
+                                var comments = node.ChildNodes.OfType<XmlComment>();
+                                if (node.ChildNodes.Count > (xmlText.Count() + codephs.Count + delims.Count + kwds.Count + opers.Count + options.Count + parmnames.Count + seps.Count + synphs.Count + vars.Count + comments.Count()))
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Node: \"{0}\" have forbidden child nodes!  Line: {1}, Position: {2}\n      Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    int synphCounter = 1;
+                                    foreach (var child in node.ChildNodes)
+                                    {
+                                        var synphChild = (XmlNode)child;
+                                        if (synphChild.Name != "codeph" && synphChild.Name != "delim" && synphChild.Name != "kwd" && synphChild.Name != "oper" && synphChild.Name != "option" && synphChild.Name != "parmname" && synphChild.Name != "sep" && synphChild.Name != "synph" && synphChild.Name != "var" && synphChild.NodeType.ToString() != "Text" && synphChild.NodeType.ToString() != "Comment")
+                                        {
+                                            sw.WriteLine("            Forbidden element #{0}: {1}", synphCounter, synphChild.OuterXml);
+                                            synphCounter++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (node.Name == "groupseq")//---------------------------------------------GROUPSEQ SECTION
+                        {
+                            if (node.Name == "groupseq" && node.InnerText != "")
+                            {
+                                //get all child nodes of type XmlText                        
+                                var childNodes = node.ChildNodes.OfType<XmlText>();
+                                if (childNodes.Count() != 0)
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    int xtCounter = 1;
+                                    foreach (var xT in childNodes)
+                                    {
+                                        sw.WriteLine("            Forbidden text element #{0}: {1}", xtCounter, xT.OuterXml);
+                                        xtCounter++;
+                                    }
+                                }
+                            }
+                        }
+                        if (node.Name == "cmdname")//----------------------------------------------------CMDNAME SECTION
+                        {
+                            if (node.HasChildNodes)
+                            {
+                                XmlNodeList cmdNameChilds = node.GetElementsByTagName("cmdname");
+                                if (cmdNameChilds.Count != 0)
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Node: \"{0}\" have forbidden child node: \"xref\"!  Line: {1}, Position: {2}\n      Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                }
+
+                            }
+                        }
+                        if (node.Name == "keywords")//---------------------------------------------KEYWORDS SECTION
+                        {
+                            if (node.Name == "keywords" && node.InnerText != "")
+                            {
+                                //get all child nodes of type XmlText                        
+                                var childNodes = node.ChildNodes.OfType<XmlText>();
+                                if (childNodes.Count() != 0)
+                                {
+                                    if (filePath != file)
+                                    {
+                                        sw.WriteLine("\n\n\nFile: {0}", file);
+                                        filePath = file;
+                                    }
+                                    sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                    int xtCounter = 1;
+                                    foreach (var xT in childNodes)
+                                    {
+                                        sw.WriteLine("            Forbidden text element #{0}: {1}", xtCounter, xT.OuterXml);
+                                        xtCounter++;
+                                    }
+                                }
+                            }
+                          
+                        }
+                        if (node.Name == "vrmlist")//---------------------------------------------VRMLIST SECTION
+                        {
+                            //Checkif vrmlist have content inside:
+                            if (node.InnerText != "")
+                            {                                 
+                                var vrms = node.GetElementsByTagName("vrm");
+
+                                if (node.HasChildNodes)
+                                {
+                                    if (node.ChildNodes.Count > vrms.Count)
+                                    {
+                                        if (filePath != file)
+                                        {
+                                            sw.WriteLine("\n\n\nFile: {0}", file);
+                                            filePath = file;
+                                        }
+                                        sw.WriteLine("\n  **Forbidden text element inside node: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                                        int xtCounter = 1;
+                                        foreach (var child in node.ChildNodes)
+                                        {
+                                            var menuChild = (XmlNode)child;
+                                            if (menuChild.Name != "vrm")
+                                            {
+                                                sw.WriteLine("            Forbidden element #{0}: {1}", xtCounter, menuChild.OuterXml);
+                                                xtCounter++;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (node.Name == "vrmlist" && (node.IsEmpty || node.HasChildNodes == false))
+                            {
+                                if (filePath != file)
+                                {
+                                    sw.WriteLine("\n\n\nFile: {0}", file);
+                                    filePath = file;
+                                }
+                                sw.WriteLine("\n  **vrmlist node is empty: \"{0}\"! Line: {1}, Position: {2}\n        Affected node: {3}", node.Name, node.LineNumber, node.LinePosition, node.OuterXml);
+                            }
+                        }
                     }
                 }
                 catch (Exception e)
@@ -259,7 +522,7 @@ namespace WPFCascadeCheckerUI
             }            
         }
 
-        internal static void CreateConfigFile(string directory)
+        internal static void CreateConfigFile(string directory, bool passoloMarker)
         {
             // this method generates config file for TMS batch, using folder with prepared subfolder structure (name of each subfolder must be language code in TMS format)
             if (Directory.Exists(directory))
@@ -272,11 +535,16 @@ namespace WPFCascadeCheckerUI
 
                 foreach (var folder in languageFolders)
                 {
-                    string languageCode = folder.Substring((folder.LastIndexOf(@"\") + 1), (folder.Length - folder.LastIndexOf(@"\") - 1));
+                    string languageCode = folder.Substring((folder.LastIndexOf(@"\") + 1), (folder.Length - folder.LastIndexOf(@"\") - 1));                    
                     string[] fullFilePath = Directory.GetFiles(folder, "*", SearchOption.TopDirectoryOnly);
-                    string filePath = fullFilePath[0].Substring(fullFilePath[0].LastIndexOf(languageCode), (fullFilePath[0].Length - fullFilePath[0].LastIndexOf(languageCode)));
+                    //string filePath = fullFilePath[0].Substring(fullFilePath[0].LastIndexOf(languageCode), (fullFilePath[0].Length - fullFilePath[0].LastIndexOf(languageCode)));
+                    string filePath = fullFilePath[0].Substring(fullFilePath[0].LastIndexOf(languageCode + Path.DirectorySeparatorChar));
 
                     //Add newchold nodes to the <BatchUpload> node
+                    if (passoloMarker = false && languageCode == "fr-ca")
+                    {
+                        languageCode = "fr-fr";
+                    }
                     config.Element("BatchUpload").Add(new XElement("Job", new XAttribute("Source", "en-us"), new XAttribute("Target", languageCode),
                         new XElement("File", new XAttribute("Fullpath", filePath))));
                 }
